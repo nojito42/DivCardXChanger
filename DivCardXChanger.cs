@@ -1,60 +1,137 @@
 ﻿using ExileCore;
+using ExileCore.PoEMemory;
+using ExileCore.PoEMemory.Components;
+using ExileCore.PoEMemory.Elements;
 using ExileCore.PoEMemory.MemoryObjects;
+using ExileCore.Shared;
+using ExileCore.Shared.Enums;
+using ExileCore.Shared.Helpers;
+using GameOffsets.Components;
 using SharpDX;
+using System;
+using System.Collections;
+using System.Linq;
+using System.Threading;
+using System.Windows.Forms;
+using Stack = ExileCore.PoEMemory.Components.Stack;
 using Vector2 = System.Numerics.Vector2;
 
 namespace DivCardXChanger;
 
+
+
 public class DivCardXChanger : BaseSettingsPlugin<DivCardXChangerSettings>
 {
+    public CardTradeWindow CardTradeWindow { get; private set; }
+    public InventoryElement InventoryWindow { get; private set; }
+
+    private bool canPress = true;
+    private Coroutine cardTradeCoroutine;
+
     public override bool Initialise()
     {
-        //Perform one-time initialization here
-
-        //Maybe load you custom config (only do so if builtin settings are inadequate for the job)
-        //var configPath = Path.Join(ConfigDirectory, "custom_config.txt");
-        //if (File.Exists(configPath))
-        //{
-        //    var data = File.ReadAllText(configPath);
-        //}
-
         return true;
     }
 
     public override void AreaChange(AreaInstance area)
     {
-        //Perform once-per-zone processing here
-        //For example, Radar builds the zone map texture here
+        canPress = true;
     }
 
     public override Job Tick()
     {
-        //Perform non-render-related work here, e.g. position calculation.
-        //This method is still called on every frame, so to really gain
-        //an advantage over just throwing everything in the Render method
-        //you have to return a custom job, but this is a bit of an advanced technique
-        //here's how, just in case:
-        //return new Job($"{nameof(DivCardXChanger)}MainJob", () =>
-        //{
-        //    var a = Math.Sqrt(7);
-        //});
+        CardTradeWindow ??= GameController.IngameState.IngameUi.CardTradeWindow;
+        InventoryWindow ??= GameController.IngameState.IngameUi.InventoryPanel;
 
-        //otherwise, just run your code here
-        //var a = Math.Sqrt(7);
+        if (!canPress || InventoryWindow == null || CardTradeWindow == null)
+            return null;
+
+        if (Settings.ToggleHotkey.PressedOnce())
+        {
+            canPress = false;
+            cardTradeCoroutine = new Coroutine(ProcessDivinationCards(), this, "DivCardXChangerCoroutine", autoStart: true);
+            Core.ParallelRunner.Run(cardTradeCoroutine);
+        }
+
         return null;
     }
 
     public override void Render()
     {
-        //Any Imgui or Graphics calls go here. This is called after Tick
-        Graphics.DrawText($"Plugin {GetType().Name} is working.", new Vector2(100, 100), Color.Red);
+        if (!Settings.Enable || MenuWindow.IsOpened)
+            return;
+
+        if (CardTradeWindow?.IsVisibleLocal == true)
+            Graphics.DrawFrame(CardTradeWindow.GetClientRect(), Color.Green, 4);
+
+        if (InventoryWindow?.IsVisibleLocal == true)
+            Graphics.DrawFrame(InventoryWindow.GetClientRect(), Color.Green, 4);
     }
 
-    public override void EntityAdded(Entity entity)
+    public IEnumerator ProcessDivinationCards()
     {
-        //If you have a reason to process every entity only once,
-        //this is a good place to do so.
-        //You may want to use a queue and run the actual
-        //processing (if any) inside the Tick method.
+        if (!Settings.Enable || CardTradeWindow == null || InventoryWindow == null)
+        {
+            canPress = true;
+            yield break;
+        }
+
+        var divTab = InventoryWindow[3][59];
+        if (divTab == null || divTab.ChildCount <= 0)
+        {
+            LogError("No divination cards found.");
+            canPress = true;
+            yield break;
+        }
+
+        Input.KeyDown(Keys.LControlKey);
+        Thread.Sleep(Settings.WaitClickMS);
+
+        for (int i = 0; i < divTab.Children.Count; i++)
+        {
+            var divCard = divTab[i];
+            if (divCard?.Entity == null || divCard.Entity.Metadata == null)
+                continue;
+
+            var stack = divCard.Entity.GetComponent<Stack>();
+            if (stack == null || !stack.FullStack)
+                continue;
+
+            if (!divCard.Entity.Metadata.StartsWith("Metadata/Items/DivinationCards"))
+                continue;
+
+            var rect = divCard.GetClientRect();
+            var center = divCard.Center;
+            Graphics.DrawFrame(rect, Color.Red, 2);
+
+            Input.SetCursorPos(new Vector2(center.X,center.Y));
+            Thread.Sleep(Settings.WaitClickMS);
+            Input.Click(MouseButtons.Left);
+            Thread.Sleep(Settings.WaitClickMS);
+
+            var tradeButton = CardTradeWindow.TradeButton;
+            if (tradeButton != null && tradeButton.IsVisibleLocal && tradeButton.IsActive)
+            {
+                Input.SetCursorPos(tradeButton.GetClientRect().Center.ToVector2Num());
+                Thread.Sleep(Settings.WaitClickMS);
+                Input.Click(MouseButtons.Left);
+                Thread.Sleep(Settings.WaitClickMS);
+
+                var dump = CardTradeWindow[5][1];
+                if (dump?.IsVisibleLocal == true)
+                {
+                    Input.SetCursorPos(dump.GetClientRect().Center.ToVector2Num());
+                    Thread.Sleep(Settings.WaitClickMS);
+                    Input.Click(MouseButtons.Left);
+                    Thread.Sleep(Settings.WaitClickMS);
+                }
+            }
+        }
+
+        Input.KeyUp(Keys.LControlKey);
+        canPress = true;
+        yield break;
     }
+
+    public override void EntityAdded(Entity entity) { }
 }
