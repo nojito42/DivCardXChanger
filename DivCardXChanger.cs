@@ -76,7 +76,7 @@ public class DivCardXChanger : BaseSettingsPlugin<DivCardXChangerSettings>
             yield break;
         }
 
-        var divTab = InventoryWindow[3][59];
+        var divTab = InventoryWindow[3][Settings.inventoryIndexHack];
         if (divTab == null || divTab.ChildCount <= 0)
         {
             LogError("No divination cards found.");
