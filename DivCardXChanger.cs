@@ -61,11 +61,11 @@ public class DivCardXChanger : BaseSettingsPlugin<DivCardXChangerSettings>
         if (!Settings.Enable || MenuWindow.IsOpened)
             return;
 
-        if (CardTradeWindow?.IsVisibleLocal == true)
+        if (CardTradeWindow?.IsVisibleLocal == true && InventoryWindow.IsVisibleLocal)
+        {
             Graphics.DrawFrame(CardTradeWindow.GetClientRect(), Color.Green, 4);
-
-        if (InventoryWindow?.IsVisibleLocal == true)
             Graphics.DrawFrame(InventoryWindow.GetClientRect(), Color.Green, 4);
+        }      
     }
 
     public IEnumerator ProcessDivinationCards()
