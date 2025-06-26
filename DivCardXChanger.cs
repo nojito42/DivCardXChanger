@@ -98,7 +98,7 @@ public class DivCardXChanger : BaseSettingsPlugin<DivCardXChangerSettings>
         Input.KeyDown(Keys.LControlKey);
         Thread.Sleep(Settings.WaitClickMS);
 
-        for (int i = 0; i < divTab.Children.Count; i++)
+        for (int i = 0; i < divTab.Children.OrderBy(dc=> dc.Center.Y).ThenBy(dc => dc.Center.Y).ToList().Count; i++)
         {
             var divCard = divTab[i];
             if (divCard?.Entity == null || divCard.Entity.Metadata == null)
