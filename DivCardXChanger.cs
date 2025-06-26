@@ -68,6 +68,7 @@ public class DivCardXChanger : BaseSettingsPlugin<DivCardXChangerSettings>
         }      
     }
 
+    int maxLoop = 5;
     public IEnumerator ProcessDivinationCards()
     {
         if (!Settings.Enable || CardTradeWindow == null || InventoryWindow == null)
@@ -76,12 +77,22 @@ public class DivCardXChanger : BaseSettingsPlugin<DivCardXChangerSettings>
             yield break;
         }
 
-        var divTab = InventoryWindow[3][Settings.inventoryIndexHack];
-        if (divTab == null || divTab.ChildCount <= 0)
+        // Replace the problematic line with the following code
+        var divTab = InventoryWindow[3]
+            .Children.FirstOrDefault(dc => dc.Children.Any(fc =>
+                fc.Entity != null &&
+                fc.Entity.Metadata != null &&
+                fc.Entity.Metadata.StartsWith("Metadata/Items/DivinationCards")))
+            ;
+        if (divTab == null || divTab.Children.Count <= 0)
         {
             LogError("No divination cards found.");
             canPress = true;
             yield break;
+        }
+        else
+        {
+            LogMessage($"Found {divTab.Children.Count} divination cards in the tab.");
         }
 
         Input.KeyDown(Keys.LControlKey);
@@ -130,8 +141,26 @@ public class DivCardXChanger : BaseSettingsPlugin<DivCardXChangerSettings>
 
         Input.KeyUp(Keys.LControlKey);
         canPress = true;
+
+        if(maxLoop > 0)
+        {
+            var divTab2 = InventoryWindow[3]
+        .Children.FirstOrDefault(dc => dc.Children.Any(fc =>
+        fc.Entity != null &&
+        fc.Entity.Metadata != null &&
+        fc.Entity.Metadata.StartsWith("Metadata/Items/DivinationCards")));
+
+            if (divTab2 == null || divTab2.Children.Count <= 0)
+                yield break;
+            
+            LogMessage($"Divination cards processed. Remaining loops: {maxLoop}");
+            yield return new WaitTime(Settings.WaitClickMS); // Wait before next iteration
+            yield return ProcessDivinationCards(); // Recursive call to process again if needed
+        }
+        else
+        {
+            LogMessage("Finished processing divination cards.");
+        }
         yield break;
     }
-
-    public override void EntityAdded(Entity entity) { }
 }
