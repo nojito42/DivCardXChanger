@@ -154,6 +154,7 @@ public class DivCardXChanger : BaseSettingsPlugin<DivCardXChangerSettings>
                 yield break;
             
             LogMessage($"Divination cards processed. Remaining loops: {maxLoop}");
+            maxLoop--;
             yield return new WaitTime(Settings.WaitClickMS); // Wait before next iteration
             yield return ProcessDivinationCards(); // Recursive call to process again if needed
         }
